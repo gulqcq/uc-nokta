@@ -1,0 +1,17 @@
+# Bağımlılıklar ve derleme çıktıları
+node_modules/
+.vercel/
+
+# Ortam değişkenleri ve gizli anahtarlar
+.env
+.env.*
+*.pem
+*.key
+*.cert
+
+# İşletim sistemi ve editör dosyaları
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/

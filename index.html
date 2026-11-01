@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Üç Nokta</title>
+  <meta name="description" content="Üç Nokta; kurgusal dizi, film ve kitapların konusunu, kadrosunu ve künyesini okuyabileceğin, izlemek ya da okumak istediğini seçip kaydedebileceğin bir platformdur.">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='12' cy='32' r='9' fill='%233a4dff'/%3E%3Ccircle cx='32' cy='32' r='9' fill='%23d92d27'/%3E%3Ccircle cx='52' cy='32' r='9' fill='%23f5b31b'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Üst Çubuk -->
+  <header class="top-bar" id="topBar">
+    <div class="top-bar-inner container">
+      <a href="#/" class="brand-logo" id="logoLink" aria-label="Ana sayfa">
+        <span class="dot dot-dizi" aria-hidden="true"></span>
+        <span class="dot dot-film" aria-hidden="true"></span>
+        <span class="dot dot-kitap" aria-hidden="true"></span>
+      </a>
+
+      <div class="top-bar-actions">
+        <nav class="desktop-nav" aria-label="Ana gezinme">
+          <button type="button" class="nav-link" id="navExploreDesktop" data-nav="kesfet">Keşfet</button>
+          <button type="button" class="nav-link" id="navSavedDesktop" data-nav="kaydedilenler">
+            <span>Kaydedilenler</span>
+            <span class="saved-badge" id="savedBadgeDesktop" hidden>0</span>
+          </button>
+        </nav>
+
+        <button type="button" class="icon-btn theme-btn" id="themeToggleBtn" aria-label="Temayı değiştir" title="Temayı değiştir">
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="5"></circle>
+            <line x1="12" y1="1" x2="12" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="23"></line>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+            <line x1="1" y1="12" x2="3" y2="12"></line>
+            <line x1="21" y1="12" x2="23" y2="12"></line>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+          </svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Ana İçerik Alanı -->
+  <main id="mainContent" class="main-content">
+    <!-- ANA SAYFA EKRANI -->
+    <section id="viewHome" class="view-section container" aria-labelledby="homeHeroTitle">
+      <div class="home-hero">
+        <div class="home-hero-left">
+          <h1 id="homeHeroTitle" class="hero-title">Ne izlesem, ne okusam?</h1>
+        </div>
+        <div class="home-hero-right">
+          <p class="hero-desc">Dizi, film ve kitapların konusunu, kadrosunu ve künyesini oku. İzlemek ya da okumak istediğini seç veya daha sonrası için kaydet.</p>
+          <form id="homeSearchForm" class="home-search-form" role="search">
+            <label for="homeSearchInput" class="sr-only">Ad ya da tür ara</label>
+            <input type="search" id="homeSearchInput" class="search-input" placeholder="Ad ya da tür ara" autocomplete="off">
+            <button type="submit" class="btn btn-primary search-submit-btn">Ara</button>
+          </form>
+          <div class="hero-suggest-row">
+            <button type="button" id="randomSuggestBtn" class="btn btn-outline suggest-btn">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="3" y="3" width="18" height="18" rx="3" ry="3"></rect>
+                <circle cx="8.5" cy="8.5" r="1.2" fill="currentColor"></circle>
+                <circle cx="15.5" cy="8.5" r="1.2" fill="currentColor"></circle>
+                <circle cx="12" cy="12" r="1.2" fill="currentColor"></circle>
+                <circle cx="8.5" cy="15.5" r="1.2" fill="currentColor"></circle>
+                <circle cx="15.5" cy="15.5" r="1.2" fill="currentColor"></circle>
+              </svg>
+              <span>Bana bir şey öner</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Kategori Panelleri -->
+      <div class="category-panels" id="categoryPanels" aria-label="Kategoriler">
+        <!-- Dizi Paneli -->
+        <button type="button" class="cat-panel cat-panel-dizi" data-category="dizi">
+          <div class="cat-panel-top">
+            <span class="cat-panel-count">
+              <svg class="cat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="2" y="7" width="20" height="15" rx="2" ry="2"></rect>
+                <polyline points="17 2 12 7 7 2"></polyline>
+              </svg>
+              <span id="homeCountDizi">223 dizi</span>
+            </span>
+            <div class="cat-panel-covers" id="homeCoversDizi" aria-hidden="true"></div>
+          </div>
+          <div class="cat-panel-bottom">
+            <span class="cat-panel-title">Dizi</span>
+            <span class="cat-panel-cta">Dizilere bak</span>
+          </div>
+        </button>
+
+        <!-- Film Paneli -->
+        <button type="button" class="cat-panel cat-panel-film" data-category="film">
+          <div class="cat-panel-top">
+            <span class="cat-panel-count">
+              <svg class="cat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect>
+                <line x1="7" y1="2" x2="7" y2="22"></line>
+                <line x1="17" y1="2" x2="17" y2="22"></line>
+                <line x1="2" y1="12" x2="22" y2="12"></line>
+                <line x1="2" y1="7" x2="7" y2="7"></line>
+                <line x1="2" y1="17" x2="7" y2="17"></line>
+                <line x1="17" y1="17" x2="22" y2="17"></line>
+                <line x1="17" y1="7" x2="22" y2="7"></line>
+              </svg>
+              <span id="homeCountFilm">657 film</span>
+            </span>
+            <div class="cat-panel-covers" id="homeCoversFilm" aria-hidden="true"></div>
+          </div>
+          <div class="cat-panel-bottom">
+            <span class="cat-panel-title">Film</span>
+            <span class="cat-panel-cta">Filmlere bak</span>
+          </div>
+        </button>
+
+        <!-- Kitap Paneli -->
+        <button type="button" class="cat-panel cat-panel-kitap" data-category="kitap">
+          <div class="cat-panel-top">
+            <span class="cat-panel-count">
+              <svg class="cat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+              </svg>
+              <span id="homeCountKitap">842 kitap</span>
+            </span>
+            <div class="cat-panel-covers" id="homeCoversKitap" aria-hidden="true"></div>
+          </div>
+          <div class="cat-panel-bottom">
+            <span class="cat-panel-title">Kitap</span>
+            <span class="cat-panel-cta">Kitaplara bak</span>
+          </div>
+        </button>
+      </div>
+    </section>
+
+    <!-- KEŞFET EKRANI -->
+    <section id="viewExplore" class="view-section container" aria-labelledby="exploreHeading" hidden>
+      <h1 id="exploreHeading" class="sr-only">Keşfet</h1>
+
+      <!-- Keşfet Araç Satırı -->
+      <div class="explore-toolbar">
+        <div class="explore-cat-pills" role="group" aria-label="Kategori seçimi">
+          <button type="button" class="cat-pill active" id="pillAll" data-cat="hepsi">
+            <span>Hepsi</span>
+            <span class="pill-count" id="countAll">1722</span>
+          </button>
+          <button type="button" class="cat-pill cat-pill-dizi" id="pillDizi" data-cat="dizi">
+            <svg class="cat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="2" y="7" width="20" height="15" rx="2" ry="2"></rect>
+              <polyline points="17 2 12 7 7 2"></polyline>
+            </svg>
+            <span>Diziler</span>
+            <span class="pill-count" id="countDizi">223</span>
+          </button>
+          <button type="button" class="cat-pill cat-pill-film" id="pillFilm" data-cat="film">
+            <svg class="cat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect>
+              <line x1="7" y1="2" x2="7" y2="22"></line>
+              <line x1="17" y1="2" x2="17" y2="22"></line>
+              <line x1="2" y1="12" x2="22" y2="12"></line>
+              <line x1="2" y1="7" x2="7" y2="7"></line>
+              <line x1="2" y1="17" x2="7" y2="17"></line>
+              <line x1="17" y1="17" x2="22" y2="17"></line>
+              <line x1="17" y1="7" x2="22" y2="7"></line>
+            </svg>
+            <span>Filmler</span>
+            <span class="pill-count" id="countFilm">657</span>
+          </button>
+          <button type="button" class="cat-pill cat-pill-kitap" id="pillKitap" data-cat="kitap">
+            <svg class="cat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+            </svg>
+            <span>Kitaplar</span>
+            <span class="pill-count" id="countKitap">842</span>
+          </button>
+        </div>
+
+        <div class="explore-controls-right">
+          <div class="explore-search-wrap">
+            <label for="exploreSearchInput" class="sr-only">Ad ya da tür ara</label>
+            <svg class="search-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="search" id="exploreSearchInput" class="search-input explore-search-input" placeholder="Ad ya da tür ara" autocomplete="off">
+          </div>
+
+          <div class="explore-sort-wrap">
+            <label for="exploreSortSelect" class="sr-only">Sıralama</label>
+            <select id="exploreSortSelect" class="sort-select">
+              <option value="onerilen">Önerilen sıra</option>
+              <option value="yeni">Yeniden eskiye</option>
+              <option value="eski">Eskiden yeniye</option>
+              <option value="az">A'dan Z'ye</option>
+              <option value="za">Z'den A'ya</option>
+            </select>
+          </div>
+
+          <button type="button" id="mobileFilterOpenBtn" class="btn btn-outline mobile-filter-btn">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <line x1="4" y1="21" x2="4" y2="14"></line>
+              <line x1="4" y1="10" x2="4" y2="3"></line>
+              <line x1="12" y1="21" x2="12" y2="12"></line>
+              <line x1="12" y1="8" x2="12" y2="3"></line>
+              <line x1="20" y1="21" x2="20" y2="16"></line>
+              <line x1="20" y1="12" x2="20" y2="3"></line>
+              <line x1="1" y1="14" x2="7" y2="14"></line>
+              <line x1="9" y1="8" x2="15" y2="8"></line>
+              <line x1="17" y1="16" x2="23" y2="16"></line>
+            </svg>
+            <span>Filtreler</span>
+            <span id="mobileFilterCountBadge" class="filter-count-badge" hidden>0</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Keşfet Gövdesi: Sol Filtreler + Sağ Sonuçlar -->
+      <div class="explore-body">
+        <div class="filter-backdrop" id="filterBackdrop" hidden></div>
+        <aside class="explore-sidebar" id="exploreSidebar" aria-label="Filtreler">
+          <div class="mobile-sidebar-header">
+            <h2 class="sidebar-mobile-title">Filtreler</h2>
+            <button type="button" class="icon-btn" id="mobileFilterCloseTopBtn" aria-label="Filtre panelini kapat">✕</button>
+          </div>
+
+          <div class="filter-groups-container">
+            <!-- Tür Filtresi -->
+            <div class="filter-group" id="filterGroupGenre">
+              <h2 class="filter-group-title">Tür</h2>
+              <div class="filter-options" id="filterOptionsGenre"></div>
+            </div>
+
+            <!-- Çıkış/Yayın Yılı Filtresi -->
+            <div class="filter-group" id="filterGroupYear">
+              <h2 class="filter-group-title">Çıkış/yayın yılı</h2>
+              <div class="filter-options" id="filterOptionsDecade"></div>
+              <div class="year-range-inputs">
+                <div class="year-input-field">
+                  <label for="yearMinInput" class="sr-only">En erken yıl</label>
+                  <input type="number" id="yearMinInput" class="year-input" placeholder="En erken" min="1900" max="2030">
+                </div>
+                <span class="year-range-sep" aria-hidden="true">–</span>
+                <div class="year-input-field">
+                  <label for="yearMaxInput" class="sr-only">En geç yıl</label>
+                  <input type="number" id="yearMaxInput" class="year-input" placeholder="En geç" min="1900" max="2030">
+                </div>
+              </div>
+            </div>
+
+            <!-- Orijinal Dil Filtresi -->
+            <div class="filter-group" id="filterGroupLang">
+              <h2 class="filter-group-title">Orijinal dil</h2>
+              <div class="filter-options" id="filterOptionsLang"></div>
+            </div>
+
+            <!-- Ülke Filtresi -->
+            <div class="filter-group" id="filterGroupCountry">
+              <h2 class="filter-group-title">Ülke</h2>
+              <div class="filter-options" id="filterOptionsCountry"></div>
+            </div>
+          </div>
+
+          <div class="mobile-sidebar-footer">
+            <button type="button" class="btn btn-primary mobile-show-results-btn" id="mobileShowResultsBtn">Sonuçları göster</button>
+          </div>
+        </aside>
+
+        <div class="explore-results-area">
+          <!-- Sonuç Üst Satırı -->
+          <div class="results-header">
+            <span class="results-count" id="resultsCountText">1722 sonuç</span>
+            <div class="active-filters-list" id="activeFiltersList"></div>
+          </div>
+
+          <!-- Kart Izgarası -->
+          <div class="cards-grid" id="exploreCardsGrid"></div>
+
+          <!-- Sonuç Yoksa -->
+          <div class="empty-results" id="exploreEmptyState" hidden>
+            <h2 class="empty-results-title">Eşleşen bir şey bulunamadı</h2>
+            <button type="button" class="btn btn-primary" id="emptyResetAllBtn">Aramayı ve filtreleri temizle</button>
+          </div>
+
+          <!-- Daha Fazla Göster -->
+          <div class="load-more-wrap" id="loadMoreWrap" hidden>
+            <button type="button" class="btn btn-outline load-more-btn" id="loadMoreBtn">Daha fazla göster</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- KAYDEDİLENLER EKRANI -->
+    <section id="viewSaved" class="view-section container" aria-labelledby="savedHeading" hidden>
+      <div class="saved-header">
+        <div class="saved-header-text">
+          <h1 id="savedHeading" class="saved-title">Kaydedilenler</h1>
+          <p class="saved-subtitle">Daha sonra izlemek ya da okumak üzere kaydettiklerin.</p>
+        </div>
+        <button type="button" id="clearSavedBtn" class="btn btn-outline clear-saved-btn" hidden>Kaydedilenleri temizle</button>
+      </div>
+
+      <div id="savedEmptyState" class="saved-empty-state" hidden>
+        <p class="saved-empty-text">Henüz bir şey kaydetmedin</p>
+      </div>
+
+      <div id="savedGroupsContainer" class="saved-groups-container">
+        <div id="savedGroupDizi" class="saved-group" hidden>
+          <div class="saved-group-header">
+            <h2 class="saved-group-title">İzlenecek diziler</h2>
+            <span class="saved-group-count" id="savedCountDizi">0</span>
+          </div>
+          <div class="cards-grid" id="savedGridDizi"></div>
+        </div>
+
+        <div id="savedGroupFilm" class="saved-group" hidden>
+          <div class="saved-group-header">
+            <h2 class="saved-group-title">İzlenecek filmler</h2>
+            <span class="saved-group-count" id="savedCountFilm">0</span>
+          </div>
+          <div class="cards-grid" id="savedGridFilm"></div>
+        </div>
+
+        <div id="savedGroupKitap" class="saved-group" hidden>
+          <div class="saved-group-header">
+            <h2 class="saved-group-title">Okunacak kitaplar</h2>
+            <span class="saved-group-count" id="savedCountKitap">0</span>
+          </div>
+          <div class="cards-grid" id="savedGridKitap"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Altbilgi (Footer) -->
+  <footer class="site-footer" id="siteFooter">
+    <div class="container footer-inner">
+      <div class="footer-dots" aria-hidden="true">
+        <span class="dot dot-dizi"></span>
+        <span class="dot dot-film"></span>
+        <span class="dot dot-kitap"></span>
+      </div>
+      <div class="footer-texts">
+        <p>Üç Nokta; dizi, film ve kitapları tek yerde toplayan kurgusal bir platformdur. Üyelik, puan ve yorum yoktur; kaydettiklerin yalnızca bu tarayıcıda saklanır.</p>
+        <p>Sitedeki bütün diziler, filmler, kitaplar, kişiler, yapım şirketleri ve yayınevleri kurgudur; gerçek eser ya da kişilerle benzerlikler tesadüfidir. Oynatıcı ve okuma ekranları da kurgusaldır, hiçbir içerik açılmaz. Kapaklar, her eser için kodla üretilmiş çizimlerdir.</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Mobil Alt Çubuk -->
+  <nav class="mobile-bottom-bar" id="mobileBottomBar" aria-label="Mobil ana gezinme">
+    <button type="button" class="mobile-nav-item active" id="navHomeMobile" data-nav="anasayfa">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+      </svg>
+      <span>Ana sayfa</span>
+    </button>
+    <button type="button" class="mobile-nav-item" id="navExploreMobile" data-nav="kesfet">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="8"></circle>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+      </svg>
+      <span>Keşfet</span>
+    </button>
+    <button type="button" class="mobile-nav-item" id="navSavedMobile" data-nav="kaydedilenler">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+      </svg>
+      <span>Kaydedilenler</span>
+      <span class="saved-badge mobile-saved-badge" id="savedBadgeMobile" hidden>0</span>
+    </button>
+  </nav>
+
+  <!-- AYRINTI PENCERESİ (MODAL) -->
+  <div class="modal-backdrop" id="detailModalBackdrop" hidden>
+    <div class="detail-modal" id="detailModal" role="dialog" aria-modal="true" aria-labelledby="detailTitle" tabindex="-1">
+      <button type="button" class="icon-btn modal-close-btn" id="detailCloseBtn" aria-label="Ayrıntı penceresini kapat">✕</button>
+      <div class="detail-modal-scroll" id="detailModalScroll">
+        <div class="detail-layout" id="detailContent"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- İZLE VE OKU EKRANI (TAM EKRAN) -->
+  <section class="player-overlay" id="playerOverlay" aria-label="İzleme ve okuma ekranı" hidden>
+    <div class="player-topbar">
+      <button type="button" class="icon-btn player-back-btn" id="playerBackBtn" aria-label="Geri dön">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="19" y1="12" x2="5" y2="12"></line>
+          <polyline points="12 19 5 12 12 5"></polyline>
+        </svg>
+      </button>
+      <div class="player-header-info" id="playerHeaderInfo"></div>
+    </div>
+    <div class="player-body-scroll" id="playerBodyScroll">
+      <div class="player-body container" id="playerBody"></div>
+    </div>
+  </section>
+
+  <script src="app.js"></script>
+</body>
+</html>
