@@ -20,9 +20,9 @@
       text: '#12142b'
     },
     dark: {
-      bg: '#0b0d1e',
-      surface: '#13163a',
-      text: '#eceffb'
+      bg: '#0e0e10',
+      surface: '#18181b',
+      text: '#ececef'
     }
   };
 
@@ -152,6 +152,7 @@
       countries: new Set(),
       tags: new Set(),
       collection: null,
+      showAllGenres: false,
       visibleCount: PAGE_SIZE
     },
 
@@ -310,14 +311,15 @@
   }
 
   const coverSvgCache = new Map();
+  let coverInstanceSeq = 0;
 
   /**
    * Her kayıt için id'sinden deterministik olarak benzersiz bir SVG sanat katmanı ve kapak oluşturur.
    * Üç kategorinin her birinin kendine özgü çerçevesi vardır.
    */
   function buildCoverHTML(item, isDecorative = false) {
-    let svgMarkup = coverSvgCache.get(item.id);
-    if (!svgMarkup) {
+    let cached = coverSvgCache.get(item.id);
+    if (!cached) {
       const seed = hashString(item.id + '::' + item.category + '::' + item.globalIdx);
       const rand = createPRNG(seed);
 
@@ -462,43 +464,84 @@
         `;
       }
 
-      const gradId = `g_${item.id}`;
-      const radId = `r_${item.id}`;
-
-      svgMarkup = `
-        <svg class="cover-art-svg" viewBox="0 0 200 300" preserveAspectRatio="none" aria-hidden="true">
-          <defs>
-            <linearGradient id="${gradId}" gradientTransform="rotate(${gradAngle} 0.5 0.5)">
-              <stop offset="0%" stop-color="${c1}"/>
-              <stop offset="100%" stop-color="${c2}"/>
-            </linearGradient>
-            <radialGradient id="${radId}" cx="${radX}%" cy="${radY}%" r="70%">
-              <stop offset="0%" stop-color="${accent1}" stop-opacity="0.32"/>
-              <stop offset="100%" stop-color="${c1}" stop-opacity="0"/>
-            </radialGradient>
-          </defs>
-          <rect width="200" height="300" fill="url(#${gradId})"/>
-          <rect width="200" height="300" fill="url(#${radId})"/>
-          ${shapes}
-          ${catFrameSvg}
-        </svg>
-      `;
-      coverSvgCache.set(item.id, svgMarkup);
+      cached = {
+        gradAngle,
+        c1,
+        c2,
+        radX,
+        radY,
+        accent1,
+        innerSvg: `${shapes}${catFrameSvg}`
+      };
+      coverSvgCache.set(item.id, cached);
     }
+
+    const seq = ++coverInstanceSeq;
+    const gradId = `g_${item.id}_${seq}`;
+    const radId = `r_${item.id}_${seq}`;
+
+    const svgMarkup = `
+      <svg class="cover-art-svg" viewBox="0 0 200 300" preserveAspectRatio="none" aria-hidden="true">
+        <defs>
+          <linearGradient id="${gradId}" gradientTransform="rotate(${cached.gradAngle} 0.5 0.5)">
+            <stop offset="0%" stop-color="${cached.c1}"/>
+            <stop offset="100%" stop-color="${cached.c2}"/>
+          </linearGradient>
+          <radialGradient id="${radId}" cx="${cached.radX}%" cy="${cached.radY}%" r="70%">
+            <stop offset="0%" stop-color="${cached.accent1}" stop-opacity="0.32"/>
+            <stop offset="100%" stop-color="${cached.c1}" stop-opacity="0"/>
+          </radialGradient>
+        </defs>
+        <rect width="200" height="300" fill="url(#${gradId})"/>
+        <rect width="200" height="300" fill="url(#${radId})"/>
+        ${cached.innerSvg}
+      </svg>
+    `;
 
     const ariaAttrs = isDecorative
       ? 'aria-hidden="true"'
       : `role="img" aria-label="${escapeHtml(item.title)}"`;
 
+    const catMeta = CATEGORY_META[item.category];
+    const infoLine = buildCoverInfoLine(item, true);
+    const genresText = (item.genres || []).join(', ');
+
     return `
       <div class="generated-cover" data-cat="${item.category}" ${ariaAttrs}>
         ${svgMarkup}
         <div class="cover-frame cover-frame-${item.category}" aria-hidden="true"></div>
+        <div class="cover-top-meta" aria-hidden="true">
+          <span class="cover-top-cat">${escapeHtml(catMeta.label)}</span>
+        </div>
         <div class="cover-typography" aria-hidden="true">
+          <span class="cover-info-text">${escapeHtml(infoLine)}</span>
           <span class="cover-title-text">${escapeHtml(item.title)}</span>
+          ${genresText ? `<span class="cover-genres-text">${escapeHtml(genresText)}</span>` : ''}
         </div>
       </div>
     `;
+  }
+
+  function buildCoverInfoLine(item, includeSeries = true) {
+    let yearDisplay = '';
+    let shortInfo = '';
+
+    if (item.category === 'dizi') {
+      yearDisplay = formatDiziYear(item);
+      shortInfo = `${item.seasons} sezon`;
+    } else if (item.category === 'film') {
+      yearDisplay = String(item.year);
+      shortInfo = formatRuntimeShort(item.runtime);
+    } else {
+      yearDisplay = String(item.year);
+      shortInfo = `${item.pages} sayfa`;
+    }
+
+    let line = `${yearDisplay} · ${shortInfo}`;
+    if (includeSeries && item.series) {
+      line += ` · ${formatSeriesBadge(item)}`;
+    }
+    return line;
   }
 
   /* ==========================================================================
@@ -1129,6 +1172,7 @@
     state.explore.countries.clear();
     state.explore.tags.clear();
     state.explore.collection = null;
+    state.explore.showAllGenres = false;
     state.explore.visibleCount = PAGE_SIZE;
 
     const searchInput = document.getElementById('exploreSearchInput');
@@ -1305,16 +1349,47 @@
     const container = document.getElementById(containerId);
     if (!container) return;
 
-    const buttonsHtml = [];
-    allValues.forEach((val) => {
+    // Mevcut seçime göre hiç sonuç vermeyecek seçenekler gösterilmesin;
+    // ancak kullanıcının zaten seçmiş olduğu bir seçenek sıfıra düşse bile görünmeye devam etsin.
+    let visibleValues = allValues.filter((val) => {
+      const count = countsMap.get(val) || 0;
+      return count > 0 || selectedSet.has(val);
+    });
+
+    // Tür, dil ve ülke seçenekleri en çok kayıttan en aza sıralansın; on yıllar eskiden yeniye sıralı kalsın.
+    if (filterType === 'genre' || filterType === 'lang' || filterType === 'country') {
+      visibleValues = visibleValues.slice().sort((a, b) => {
+        const diff = (countsMap.get(b) || 0) - (countsMap.get(a) || 0);
+        if (diff !== 0) return diff;
+        return String(a).localeCompare(String(b), 'tr');
+      });
+    }
+
+    // Türlerde ilk 12 görünsün, altında "Tümünü göster (34)" bağlantısı olsun, açılınca "Daha az göster" olsun.
+    let valuesToRender = visibleValues;
+    if (filterType === 'genre') {
+      const toggleBtn = document.getElementById('toggleAllGenresBtn');
+      const totalGenres = visibleValues.length;
+      if (totalGenres > 12) {
+        if (!state.explore.showAllGenres) {
+          valuesToRender = visibleValues.slice(0, 12);
+        }
+        if (toggleBtn) {
+          toggleBtn.hidden = false;
+          toggleBtn.textContent = state.explore.showAllGenres
+            ? 'Daha az göster'
+            : `Tümünü göster (${totalGenres})`;
+        }
+      } else if (toggleBtn) {
+        toggleBtn.hidden = true;
+      }
+    }
+
+    const buttonsHtml = valuesToRender.map((val) => {
       const count = countsMap.get(val) || 0;
       const isSelected = selectedSet.has(val);
-      // Mevcut seçime göre hiç sonuç vermeyecek seçenekler gösterilmesin;
-      // ancak kullanıcının zaten seçmiş olduğu bir seçenek sıfıra düşse bile görünmeye devam etsin.
-      if (count === 0 && !isSelected) return;
-
       const label = labelFn(val);
-      buttonsHtml.push(`
+      return `
         <button type="button"
           class="filter-option-btn ${isSelected ? 'selected' : ''}"
           data-filter-type="${filterType}"
@@ -1323,7 +1398,7 @@
           <span>${escapeHtml(label)}</span>
           <span class="filter-opt-count">${count}</span>
         </button>
-      `);
+      `;
     });
 
     container.innerHTML = buttonsHtml.join('');
@@ -1407,25 +1482,6 @@
     const saved = isItemSaved(item.id);
     const liked = isItemLiked(item.id);
 
-    let yearDisplay = '';
-    let shortInfo = '';
-
-    if (item.category === 'dizi') {
-      yearDisplay = formatDiziYear(item);
-      shortInfo = `${item.seasons} sezon`;
-    } else if (item.category === 'film') {
-      yearDisplay = String(item.year);
-      shortInfo = formatRuntimeShort(item.runtime);
-    } else {
-      yearDisplay = String(item.year);
-      shortInfo = `${item.pages} sayfa`;
-    }
-
-    const genresText = (item.genres || []).join(', ');
-    const seriesBadge = item.series
-      ? `<span class="card-series-tag">${escapeHtml(formatSeriesBadge(item))}</span>`
-      : '';
-
     const favAria = liked
       ? `${item.title} kaydını favorilerden çıkar`
       : `${item.title} kaydını beğen`;
@@ -1437,7 +1493,6 @@
     return `
       <article class="item-card" data-item-id="${escapeHtml(item.id)}" tabindex="0" role="button" aria-label="${escapeHtml(item.title)} (${escapeHtml(catMeta.label)})">
         <div class="card-cover-wrap">
-          <span class="card-cat-badge card-cat-badge-${item.category}">${escapeHtml(catMeta.label)}</span>
           <button type="button"
             class="card-fav-btn ${liked ? 'liked' : ''}"
             data-fav-id="${escapeHtml(item.id)}"
@@ -1453,20 +1508,6 @@
             ${getBookmarkSvg(saved)}
           </button>
           ${buildCoverHTML(item, false)}
-        </div>
-        <div class="card-body">
-          <h3 class="card-title">${escapeHtml(item.title)}</h3>
-          <div class="card-meta">
-            <span class="card-meta-cat-${item.category}">${escapeHtml(catMeta.label)}</span>
-            <span class="card-meta-dot" aria-hidden="true">·</span>
-            <span>${escapeHtml(yearDisplay)}</span>
-            <span class="card-meta-dot" aria-hidden="true">·</span>
-            <span>${escapeHtml(shortInfo)}</span>
-          </div>
-          <div class="card-footer">
-            <span class="card-genres">${escapeHtml(genresText)}</span>
-            ${seriesBadge}
-          </div>
         </div>
       </article>
     `;
@@ -1948,6 +1989,10 @@
     clearPlayerTimer();
     const overlay = document.getElementById('playerOverlay');
     if (overlay) overlay.hidden = true;
+    const topbarActions = document.getElementById('playerTopbarActions');
+    if (topbarActions) topbarActions.hidden = true;
+    const ebookBottomBar = document.getElementById('ebookBottomBar');
+    if (ebookBottomBar) ebookBottomBar.hidden = true;
     document.body.classList.remove('player-open');
     state.activePlayerId = null;
   }
@@ -1967,7 +2012,17 @@
   function renderPlayerOverlayContent(item) {
     const headerInfo = document.getElementById('playerHeaderInfo');
     const playerBody = document.getElementById('playerBody');
+    const topbarActions = document.getElementById('playerTopbarActions');
+    const ebookBottomBar = document.getElementById('ebookBottomBar');
+    const ebookProgressLabel = document.getElementById('ebookProgressLabel');
     if (!headerInfo || !playerBody) return;
+
+    const isBook = item.category === 'kitap';
+    if (topbarActions) topbarActions.hidden = !isBook;
+    if (ebookBottomBar) ebookBottomBar.hidden = !isBook;
+    if (isBook && ebookProgressLabel) {
+      ebookProgressLabel.textContent = `0 / ${item.pages} sayfa`;
+    }
 
     if (item.category === 'dizi') {
       headerInfo.innerHTML = `
@@ -2021,15 +2076,6 @@
               <div class="video-stage-center" id="playerStageCenter">
                 ${buildVideoStageCenterHTML(item)}
               </div>
-              <div class="video-control-bar" aria-hidden="true">
-                <span class="control-play-icon">
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
-                  </svg>
-                </span>
-                <div class="control-progress-track"></div>
-                <span class="control-time">0:00</span>
-              </div>
             </div>
 
             <div class="series-under-stage">
@@ -2070,15 +2116,6 @@
             <div class="video-stage-center" id="playerStageCenter">
               ${buildVideoStageCenterHTML(item)}
             </div>
-            <div class="video-control-bar" aria-hidden="true">
-              <span class="control-play-icon">
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                  <polygon points="5 3 19 12 5 21 5 3"></polygon>
-                </svg>
-              </span>
-              <div class="control-progress-track"></div>
-              <span class="control-time">0:00</span>
-            </div>
           </div>
 
           <div class="movie-under-stage">
@@ -2097,7 +2134,7 @@
       // Kitap okuyucusu
       headerInfo.innerHTML = `
         <h1 class="player-header-title">${escapeHtml(item.title)}</h1>
-        <span class="player-header-sub">${escapeHtml((item.authors || []).join(', '))}</span>
+        <span class="player-header-sub book-author-sub">${escapeHtml((item.authors || []).join(', '))}</span>
       `;
 
       playerBody.innerHTML = `
@@ -2110,16 +2147,33 @@
               ${buildBookStageCenterHTML()}
             </div>
           </div>
-
-          <div class="ebook-progress-bar-wrap" aria-label="Okuma ilerlemesi">
-            <div class="ebook-progress-track">
-              <div class="ebook-progress-fill"></div>
-            </div>
-            <span class="ebook-progress-label">0 / ${item.pages} sayfa</span>
-          </div>
         </div>
       `;
     }
+  }
+
+  function getErrorAlertIconSvg() {
+    return `
+      <div class="player-error-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="8" x2="12" y2="12"></line>
+          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+      </div>
+    `;
+  }
+
+  function getRetryButtonHTML() {
+    return `
+      <button type="button" class="retry-btn" id="stageRetryBtn">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="23 4 23 10 17 10"></polyline>
+          <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+        </svg>
+        <span>Tekrar dene</span>
+      </button>
+    `;
   }
 
   function buildVideoStageCenterHTML(item) {
@@ -2148,9 +2202,10 @@
 
     return `
       <div class="player-error-box">
+        ${getErrorAlertIconSvg()}
         <h2 class="player-error-title">Oynatılamıyor</h2>
         <p class="player-error-desc">${descText}</p>
-        <button type="button" class="retry-btn" id="stageRetryBtn">Tekrar dene</button>
+        ${getRetryButtonHTML()}
       </div>
     `;
   }
@@ -2164,9 +2219,10 @@
     }
 
     return `
+      ${getErrorAlertIconSvg()}
       <h2 class="ebook-status-title">Kitap yüklenemedi</h2>
       <p class="ebook-status-desc">Bu kitap kurgusaldır, gerçekte bir metni yoktur.</p>
-      <button type="button" class="btn btn-primary" id="stageRetryBtn">Tekrar dene</button>
+      ${getRetryButtonHTML()}
     `;
   }
 
@@ -2560,6 +2616,12 @@
 
     // Keşfet: Sol sütundaki filtre seçeneklerine tıklama
     document.getElementById('exploreSidebar')?.addEventListener('click', (e) => {
+      if (e.target.closest('#toggleAllGenresBtn')) {
+        state.explore.showAllGenres = !state.explore.showAllGenres;
+        renderExploreView();
+        return;
+      }
+
       const btn = e.target.closest('.filter-option-btn[data-filter-type]');
       if (!btn) return;
       const type = btn.dataset.filterType;
@@ -2679,6 +2741,7 @@
 
       const card = e.target.closest('.item-card[data-item-id]');
       if (card) {
+        hideCardHoverPopover();
         navigateToDetail(card.dataset.itemId);
       }
     });
@@ -2846,7 +2909,311 @@
     });
 
     // Hash değişimini dinle (Geri ve İleri tuşları)
-    window.addEventListener('hashchange', handleRouteChange);
+    window.addEventListener('hashchange', () => {
+      hideCardHoverPopover();
+      handleRouteChange();
+    });
+
+    initLogoAnimation();
+    initCardHoverPopover();
+  }
+
+  /* ==========================================================================
+     16B. ÜÇ NOKTA LOGO HOVER ANİMASYONU (Yin-Yang Kuyruklu Dönüş)
+     ========================================================================== */
+  function buildCircleSvgPath(x, y, r) {
+    const x1 = (x - r).toFixed(2);
+    const x2 = (x + r).toFixed(2);
+    const yf = y.toFixed(2);
+    const rf = r.toFixed(2);
+    return `M ${x1} ${yf} A ${rf} ${rf} 0 1 0 ${x2} ${yf} A ${rf} ${rf} 0 1 0 ${x1} ${yf} Z`;
+  }
+
+  function buildCometSvgPath(cx, cy, orbitR, theta, headR, tailAngle, tailBlend) {
+    const hx = cx + orbitR * Math.cos(theta);
+    const hy = cy + orbitR * Math.sin(theta);
+
+    if (tailBlend <= 0.004 || orbitR <= 0.4) {
+      return buildCircleSvgPath(hx, hy, headR);
+    }
+
+    const urx = Math.cos(theta);
+    const ury = Math.sin(theta);
+    const utx = -Math.sin(theta);
+    const uty = Math.cos(theta);
+
+    const pts = [];
+    const headSteps = 10;
+    for (let k = 0; k <= headSteps; k++) {
+      const gamma = -Math.PI / 2 + (k / headSteps) * Math.PI;
+      const sg = Math.sin(gamma);
+      const cg = Math.cos(gamma);
+      const px = hx + headR * (sg * urx + cg * utx);
+      const py = hy + headR * (sg * ury + cg * uty);
+      pts.push(`${px.toFixed(2)} ${py.toFixed(2)}`);
+    }
+
+    const tailSteps = 22;
+    for (let k = 1; k < tailSteps; k++) {
+      const gamma = Math.PI / 2 + (k / tailSteps) * Math.PI;
+      const u = -Math.cos(gamma); // 0 -> 1 -> 0
+      const phi = theta - Math.pow(u, 1.08) * tailAngle;
+      const cpx = cx + orbitR * Math.cos(phi);
+      const cpy = cy + orbitR * Math.sin(phi);
+      const nrx = Math.cos(phi);
+      const nry = Math.sin(phi);
+      const ntx = -Math.sin(phi);
+      const nty = Math.cos(phi);
+      const taper = Math.pow(Math.max(0, 1 - u), 0.85 * tailBlend);
+      const px = cpx + headR * Math.sin(gamma) * taper * nrx - headR * (1 - tailBlend) * u * ntx;
+      const py = cpy + headR * Math.sin(gamma) * taper * nry - headR * (1 - tailBlend) * u * nty;
+      pts.push(`${px.toFixed(2)} ${py.toFixed(2)}`);
+    }
+
+    return `M ${pts.join(' L ')} Z`;
+  }
+
+  function initLogoAnimation() {
+    const logo = document.getElementById('logoLink');
+    const dotDizi = document.getElementById('logoDotDizi');
+    const dotFilm = document.getElementById('logoDotFilm');
+    const dotKitap = document.getElementById('logoDotKitap');
+    if (!logo || !dotDizi || !dotFilm || !dotKitap) return;
+
+    const CX = 33;
+    const CY = 19;
+    const REST_R = 7;
+    const ORBIT_R = 12;
+    const DURATION_MS = 1300;
+
+    let rafId = null;
+    let isPlaying = false;
+
+    function applyFrame(t) {
+      if (t <= 0 || t >= 1) {
+        dotDizi.setAttribute('d', buildCircleSvgPath(11, CY, REST_R));
+        dotFilm.setAttribute('d', buildCircleSvgPath(33, CY, REST_R));
+        dotKitap.setAttribute('d', buildCircleSvgPath(55, CY, REST_R));
+        logo.dataset.animating = 'false';
+        return;
+      }
+
+      logo.dataset.animating = 'true';
+
+      let s = 1;
+      if (t < 0.22) {
+        s = 0.5 - 0.5 * Math.cos(Math.PI * (t / 0.22));
+      } else if (t > 0.78) {
+        s = 0.5 - 0.5 * Math.cos(Math.PI * ((1 - t) / 0.22));
+      }
+
+      const deltaTheta = 2 * Math.PI * (0.5 - 0.5 * Math.cos(Math.PI * t));
+      const tailBlend = Math.pow(s, 1.65);
+      const tailAngle = 1.18 * tailBlend;
+      const headR = REST_R - 0.55 * tailBlend;
+
+      const rDizi = 22 * (1 - s) + ORBIT_R * s;
+      const thetaDizi = Math.PI - (Math.PI / 6) * s + deltaTheta;
+
+      const rFilm = ORBIT_R * s;
+      const thetaFilm = 1.5 * Math.PI + deltaTheta;
+
+      const rKitap = 22 * (1 - s) + ORBIT_R * s;
+      const thetaKitap = (Math.PI / 6) * s + deltaTheta;
+
+      dotDizi.setAttribute(
+        'd',
+        buildCometSvgPath(CX, CY, rDizi, thetaDizi, headR, tailAngle, tailBlend)
+      );
+      dotFilm.setAttribute(
+        'd',
+        buildCometSvgPath(CX, CY, rFilm, thetaFilm, headR, tailAngle, tailBlend)
+      );
+      dotKitap.setAttribute(
+        'd',
+        buildCometSvgPath(CX, CY, rKitap, thetaKitap, headR, tailAngle, tailBlend)
+      );
+    }
+
+    function startOrbit() {
+      if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        applyFrame(0);
+        return;
+      }
+      if (isPlaying) return;
+      isPlaying = true;
+      let startTime = null;
+
+      function tick(now) {
+        if (startTime === null) startTime = now;
+        const elapsed = Math.max(1, now - startTime);
+        const t = Math.min(1, elapsed / DURATION_MS);
+        applyFrame(t);
+        if (t < 1) {
+          rafId = requestAnimationFrame(tick);
+        } else {
+          rafId = null;
+          isPlaying = false;
+        }
+      }
+
+      rafId = requestAnimationFrame(tick);
+    }
+
+    logo.addEventListener('mouseenter', () => {
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+        isPlaying = false;
+      }
+      startOrbit();
+    });
+
+    applyFrame(0);
+  }
+
+  /* ==========================================================================
+     16C. FARE BEKLEYİNCE AÇILAN KÜÇÜK AYRINTI KUTUSU (Yalnızca Bilgisayarda)
+     ========================================================================== */
+  let hoverPopoverTimer = null;
+  let hoveredCardEl = null;
+  let lastPointerWasTouch = false;
+  const HOVER_POPOVER_DELAY_MS = 2000;
+
+  function isDesktopHoverSupported() {
+    if (lastPointerWasTouch) return false;
+    if (!window.matchMedia) return true;
+    return (
+      window.matchMedia('(hover: hover) and (pointer: fine)').matches &&
+      !window.matchMedia('(pointer: coarse)').matches
+    );
+  }
+
+  function hideCardHoverPopover() {
+    if (hoverPopoverTimer) {
+      clearTimeout(hoverPopoverTimer);
+      hoverPopoverTimer = null;
+    }
+    hoveredCardEl = null;
+    const popover = document.getElementById('cardHoverPopover');
+    if (popover && !popover.hidden) {
+      popover.hidden = true;
+    }
+  }
+
+  function showCardHoverPopover(card) {
+    if (!isDesktopHoverSupported()) return;
+    if (!card || !card.isConnected) return;
+    if (state.activeModalId || state.activePlayerId) return;
+
+    const itemId = card.dataset.itemId;
+    const item = state.byId.get(itemId);
+    if (!item) return;
+
+    const popover = document.getElementById('cardHoverPopover');
+    if (!popover) return;
+
+    const infoLine = buildCoverInfoLine(item, true);
+    const genresText = (item.genres || []).join(', ');
+
+    popover.innerHTML = `
+      <div class="hover-popover-title">${escapeHtml(item.title)}</div>
+      <div class="hover-popover-info">${escapeHtml(infoLine)}</div>
+      <p class="hover-popover-plot">${escapeHtml(item.plot)}</p>
+      ${genresText ? `<div class="hover-popover-genres">${escapeHtml(genresText)}</div>` : ''}
+    `;
+
+    popover.hidden = false;
+    popover.style.left = '0px';
+    popover.style.top = '0px';
+
+    const cardRect = card.getBoundingClientRect();
+    const popRect = popover.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const gap = 12;
+    const edgePad = 12;
+
+    let left = cardRect.right + gap;
+    let side = 'right';
+
+    if (left + popRect.width > vw - edgePad) {
+      const leftSideCandidate = cardRect.left - gap - popRect.width;
+      if (leftSideCandidate >= edgePad) {
+        left = leftSideCandidate;
+        side = 'left';
+      } else {
+        left = Math.max(edgePad, vw - popRect.width - edgePad);
+      }
+    }
+
+    let top = cardRect.top + 8;
+    if (top + popRect.height > vh - edgePad) {
+      top = Math.max(edgePad, vh - popRect.height - edgePad);
+    }
+    if (top < edgePad) {
+      top = edgePad;
+    }
+
+    popover.dataset.side = side;
+    popover.style.left = `${Math.round(left)}px`;
+    popover.style.top = `${Math.round(top)}px`;
+  }
+
+  function initCardHoverPopover() {
+    const mainContent = document.getElementById('mainContent');
+    if (!mainContent) return;
+
+    window.addEventListener(
+      'pointerdown',
+      (e) => {
+        if (e.pointerType === 'touch') {
+          lastPointerWasTouch = true;
+          hideCardHoverPopover();
+        } else if (e.pointerType === 'mouse') {
+          lastPointerWasTouch = false;
+        }
+      },
+      { passive: true }
+    );
+
+    window.addEventListener(
+      'touchstart',
+      () => {
+        lastPointerWasTouch = true;
+        hideCardHoverPopover();
+      },
+      { passive: true }
+    );
+
+    mainContent.addEventListener('mouseover', (e) => {
+      if (!isDesktopHoverSupported()) return;
+      const card = e.target.closest('.item-card[data-item-id]');
+      if (!card) {
+        if (hoveredCardEl) hideCardHoverPopover();
+        return;
+      }
+      if (card === hoveredCardEl) return;
+
+      hideCardHoverPopover();
+      hoveredCardEl = card;
+      hoverPopoverTimer = setTimeout(() => {
+        hoverPopoverTimer = null;
+        if (hoveredCardEl === card) {
+          showCardHoverPopover(card);
+        }
+      }, HOVER_POPOVER_DELAY_MS);
+    });
+
+    mainContent.addEventListener('mouseout', (e) => {
+      if (!hoveredCardEl) return;
+      const related = e.relatedTarget;
+      if (related && hoveredCardEl.contains(related)) return;
+      hideCardHoverPopover();
+    });
+
+    window.addEventListener('scroll', hideCardHoverPopover, { passive: true });
+    window.addEventListener('resize', hideCardHoverPopover, { passive: true });
   }
 
   function toggleSetValue(setObj, val) {
@@ -2863,6 +3230,7 @@
     state.explore.countries.clear();
     state.explore.tags.clear();
     state.explore.collection = null;
+    state.explore.showAllGenres = false;
     state.explore.visibleCount = PAGE_SIZE;
 
     const minIn = document.getElementById('yearMinInput');
