@@ -75,6 +75,7 @@
       yearMax: null,
       langs: new Set(),
       countries: new Set(),
+      tags: new Set(),
       visibleCount: PAGE_SIZE
     },
 
@@ -620,6 +621,11 @@
           tokenizeNormalized(g).forEach((w) => genreWords.push(w));
         });
 
+        const tagWords = [];
+        (entry.tags || []).forEach((t) => {
+          tokenizeNormalized(t).forEach((w) => tagWords.push(w));
+        });
+
         const decade = Math.floor(Number(entry.year) / 10) * 10;
         decadesSet.add(decade);
 
@@ -636,7 +642,8 @@
           country: validCountries,
           decade,
           _titleWords: titleWords,
-          _genreWords: genreWords
+          _genreWords: genreWords,
+          _tagWords: tagWords
         };
 
         state.lists[cat].push(item);
@@ -709,34 +716,40 @@
    * - 0: eşleşmedi
    * - 1: adının ilk kelimesi eşleşti (en alakalı)
    * - 2: adının başka bir kelimesi eşleşti
-   * - 3: yalnızca türü eşleşti
+   * - 3: türü eşleşti
+   * - 4: yalnızca konu etiketi eşleşti (en sonda)
    */
   function evaluateSearchMatch(item, queryWords) {
     if (!queryWords || queryWords.length === 0) return 1;
 
     const titleWords = item._titleWords;
     const genreWords = item._genreWords;
+    const tagWords = item._tagWords || [];
 
     let anyFirstTitleWord = false;
     let anyTitleWord = false;
+    let anyGenreWord = false;
 
     for (let i = 0; i < queryWords.length; i++) {
       const qw = queryWords[i];
       const matchesFirstTitle = titleWords.length > 0 && titleWords[0].startsWith(qw);
       const matchesAnyTitle = matchesFirstTitle || titleWords.some((tw) => tw.startsWith(qw));
       const matchesAnyGenre = genreWords.some((gw) => gw.startsWith(qw));
+      const matchesAnyTag = tagWords.some((tgw) => tgw.startsWith(qw));
 
-      if (!matchesAnyTitle && !matchesAnyGenre) {
+      if (!matchesAnyTitle && !matchesAnyGenre && !matchesAnyTag) {
         return 0; // Birden fazla kelime yazılırsa her kelime eşleşmeli
       }
 
       if (matchesFirstTitle) anyFirstTitleWord = true;
       if (matchesAnyTitle) anyTitleWord = true;
+      if (matchesAnyGenre) anyGenreWord = true;
     }
 
     if (anyFirstTitleWord) return 1;
     if (anyTitleWord) return 2;
-    return 3;
+    if (anyGenreWord) return 3;
+    return 4;
   }
 
   /**
@@ -781,6 +794,12 @@
     if (!isOnlyBooks && ignoreGroup !== 'country' && exp.countries.size > 0) {
       const hasCountry = (item.country || []).some((c) => exp.countries.has(c));
       if (!hasCountry) return false;
+    }
+
+    // Konu etiketi kontrolü
+    if (ignoreGroup !== 'tag' && exp.tags.size > 0) {
+      const hasTag = (item.tags || []).some((t) => exp.tags.has(t));
+      if (!hasTag) return false;
     }
 
     return true;
@@ -829,14 +848,16 @@
         // Arama yoksa veri dosyasındaki sırayla üç kategori dönüşümlü gelsin
         return interleaveByCategory(matchedWithRank.map((m) => m.item));
       }
-      // Arama varsa: Önce adının ilk kelimesi (1), sonra adının başka kelimesi (2), en son yalnızca türü (3)
+      // Arama varsa: Önce adının ilk kelimesi (1), sonra adının başka kelimesi (2), sonra türü (3), en son konu etiketi (4)
       const tier1 = matchedWithRank.filter((m) => m.rank === 1).map((m) => m.item);
       const tier2 = matchedWithRank.filter((m) => m.rank === 2).map((m) => m.item);
       const tier3 = matchedWithRank.filter((m) => m.rank === 3).map((m) => m.item);
+      const tier4 = matchedWithRank.filter((m) => m.rank === 4).map((m) => m.item);
       return [
         ...interleaveByCategory(tier1),
         ...interleaveByCategory(tier2),
-        ...interleaveByCategory(tier3)
+        ...interleaveByCategory(tier3),
+        ...interleaveByCategory(tier4)
       ];
     }
 
@@ -870,6 +891,7 @@
     state.explore.yearMax = null;
     state.explore.langs.clear();
     state.explore.countries.clear();
+    state.explore.tags.clear();
     state.explore.visibleCount = PAGE_SIZE;
 
     const searchInput = document.getElementById('exploreSearchInput');
@@ -1094,6 +1116,10 @@
 
     exp.countries.forEach((c) => {
       chips.push({ type: 'country', val: c, label: c });
+    });
+
+    exp.tags.forEach((t) => {
+      chips.push({ type: 'tag', val: t, label: t });
     });
 
     const listEl = document.getElementById('activeFiltersList');
@@ -1407,6 +1433,21 @@
       `;
     }
 
+    // Künyenin altında konu etiketleri (varsa)
+    const tagsSectionHtml =
+      Array.isArray(item.tags) && item.tags.length > 0
+        ? `
+          <div class="detail-tags-section" aria-label="Konu etiketleri">
+            ${item.tags
+              .map(
+                (t) =>
+                  `<button type="button" class="detail-tag-btn" data-tag-filter="${escapeHtml(t)}">${escapeHtml(t)}</button>`
+              )
+              .join('')}
+          </div>
+        `
+        : '';
+
     // Serinin diğer parçaları (varsa)
     let seriesSiblingsHtml = '';
     if (item.series) {
@@ -1478,6 +1519,8 @@
         <div class="detail-credits">
           ${creditsRowsHtml}
         </div>
+
+        ${tagsSectionHtml}
 
         ${seriesSiblingsHtml}
       </div>
@@ -2212,6 +2255,7 @@
         if (maxIn) maxIn.value = '';
       } else if (type === 'lang') exp.langs.delete(val);
       else if (type === 'country') exp.countries.delete(val);
+      else if (type === 'tag') exp.tags.delete(val);
 
       exp.visibleCount = PAGE_SIZE;
       renderExploreView();
@@ -2265,7 +2309,7 @@
       }
     });
 
-    // Ayrıntı penceresi içi tıklamalar (İzle/Oku, Kaydet, Künye filtreleri, Seri kardeşleri)
+    // Ayrıntı penceresi içi tıklamalar (İzle/Oku, Kaydet, Künye filtreleri, Konu etiketleri, Seri kardeşleri)
     document.getElementById('detailContent')?.addEventListener('click', (e) => {
       // İzle / Oku butonu
       const primaryBtn = e.target.closest('#detailPrimaryActionBtn');
@@ -2299,6 +2343,26 @@
         if (filterType === 'genre') state.explore.genres.add(filterVal);
         else if (filterType === 'country') state.explore.countries.add(filterVal);
         else if (filterType === 'lang') state.explore.langs.add(filterVal);
+
+        state.modalHistoryDepth = 0;
+        if (window.location.hash === '#/kesfet') {
+          showBaseView('kesfet', false);
+          updateDocumentTitle();
+        } else {
+          window.location.hash = '#/kesfet';
+          window.scrollTo(0, 0);
+        }
+        return;
+      }
+
+      // Künyenin altındaki Konu Etiketi (tag) butonları
+      const tagBtn = e.target.closest('.detail-tag-btn[data-tag-filter]');
+      if (tagBtn) {
+        const tagVal = tagBtn.dataset.tagFilter;
+
+        hideDetailModal();
+        resetExploreState();
+        state.explore.tags.add(tagVal);
 
         state.modalHistoryDepth = 0;
         if (window.location.hash === '#/kesfet') {
@@ -2398,6 +2462,7 @@
     state.explore.yearMax = null;
     state.explore.langs.clear();
     state.explore.countries.clear();
+    state.explore.tags.clear();
     state.explore.visibleCount = PAGE_SIZE;
 
     const minIn = document.getElementById('yearMinInput');

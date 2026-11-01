@@ -1492,6 +1492,33 @@ a {
   border-color: var(--text-main);
 }
 
+/* Konu Etiketleri (Künyenin Altında) */
+.detail-tags-section {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 6px;
+}
+
+.detail-tag-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 13px;
+  border-radius: var(--radius-pill);
+  background-color: var(--bg-page);
+  border: 1px solid var(--border-color);
+  font-size: 0.83rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.detail-tag-btn:hover {
+  background-color: var(--text-main);
+  color: var(--bg-page);
+  border-color: var(--text-main);
+}
+
 /* Serinin Diğer Parçaları */
 .detail-series-section {
   border-top: 1px solid var(--border-color);
