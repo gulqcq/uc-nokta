@@ -24,6 +24,10 @@
       <div class="top-bar-actions">
         <nav class="desktop-nav" aria-label="Ana gezinme">
           <button type="button" class="nav-link" id="navExploreDesktop" data-nav="kesfet">Keşfet</button>
+          <button type="button" class="nav-link" id="navFavDesktop" data-nav="favoriler">
+            <span>Favoriler</span>
+            <span class="saved-badge fav-badge" id="favBadgeDesktop" hidden>0</span>
+          </button>
           <button type="button" class="nav-link" id="navSavedDesktop" data-nav="kaydedilenler">
             <span>Kaydedilenler</span>
             <span class="saved-badge" id="savedBadgeDesktop" hidden>0</span>
@@ -311,6 +315,47 @@
       </div>
     </section>
 
+    <!-- FAVORİLER EKRANI -->
+    <section id="viewFavorites" class="view-section container" aria-labelledby="favHeading" hidden>
+      <div class="saved-header">
+        <div class="saved-header-text">
+          <h1 id="favHeading" class="saved-title">Favoriler</h1>
+          <p class="saved-subtitle">Beğendiğin dizi, film ve kitaplar.</p>
+        </div>
+        <button type="button" id="clearFavBtn" class="btn btn-outline clear-saved-btn" hidden>Favorileri temizle</button>
+      </div>
+
+      <div id="favEmptyState" class="saved-empty-state" hidden>
+        <p class="saved-empty-text">Henüz bir şey beğenmedin</p>
+      </div>
+
+      <div id="favGroupsContainer" class="saved-groups-container">
+        <div id="favGroupDizi" class="saved-group" hidden>
+          <div class="saved-group-header">
+            <h2 class="saved-group-title">Diziler</h2>
+            <span class="saved-group-count" id="favCountDizi">0</span>
+          </div>
+          <div class="cards-grid" id="favGridDizi"></div>
+        </div>
+
+        <div id="favGroupFilm" class="saved-group" hidden>
+          <div class="saved-group-header">
+            <h2 class="saved-group-title">Filmler</h2>
+            <span class="saved-group-count" id="favCountFilm">0</span>
+          </div>
+          <div class="cards-grid" id="favGridFilm"></div>
+        </div>
+
+        <div id="favGroupKitap" class="saved-group" hidden>
+          <div class="saved-group-header">
+            <h2 class="saved-group-title">Kitaplar</h2>
+            <span class="saved-group-count" id="favCountKitap">0</span>
+          </div>
+          <div class="cards-grid" id="favGridKitap"></div>
+        </div>
+      </div>
+    </section>
+
     <!-- KAYDEDİLENLER EKRANI -->
     <section id="viewSaved" class="view-section container" aria-labelledby="savedHeading" hidden>
       <div class="saved-header">
@@ -362,7 +407,7 @@
         <span class="dot dot-kitap"></span>
       </div>
       <div class="footer-texts">
-        <p>Üç Nokta; dizi, film ve kitapları tek yerde toplayan kurgusal bir platformdur. Üyelik, puan ve yorum yoktur; kaydettiklerin yalnızca bu tarayıcıda saklanır.</p>
+        <p>Üç Nokta; dizi, film ve kitapları tek yerde toplayan kurgusal bir platformdur. Üyelik, puan ve yorum yoktur; favorilerin ve kaydettiklerin yalnızca bu tarayıcıda saklanır.</p>
         <p>Sitedeki bütün diziler, filmler, kitaplar, kişiler, yapım şirketleri ve yayınevleri kurgudur; gerçek eser ya da kişilerle benzerlikler tesadüfidir. Oynatıcı ve okuma ekranları da kurgusaldır, hiçbir içerik açılmaz. Kapaklar, her eser için kodla üretilmiş çizimlerdir.</p>
       </div>
     </div>
@@ -383,6 +428,13 @@
         <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
       </svg>
       <span>Keşfet</span>
+    </button>
+    <button type="button" class="mobile-nav-item" id="navFavMobile" data-nav="favoriler">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+      </svg>
+      <span>Favoriler</span>
+      <span class="saved-badge fav-badge mobile-saved-badge" id="favBadgeMobile" hidden>0</span>
     </button>
     <button type="button" class="mobile-nav-item" id="navSavedMobile" data-nav="kaydedilenler">
       <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">

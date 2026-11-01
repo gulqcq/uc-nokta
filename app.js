@@ -13,6 +13,7 @@
     dizi: '#3a4dff',
     film: '#d92d27',
     kitap: '#f5b31b',
+    fav: '#e11d48',
     light: {
       bg: '#eff0f6',
       surface: '#ffffff',
@@ -27,7 +28,8 @@
 
   const STORAGE_KEYS = {
     theme: 'uc_nokta_tema',
-    saved: 'uc_nokta_kaydedilenler'
+    saved: 'uc_nokta_kaydedilenler',
+    fav: 'uc_nokta_favoriler'
   };
 
   const PAGE_SIZE = 48;
@@ -128,7 +130,8 @@
       countries: []
     },
     savedIds: [], // Son kaydedilen en başta duracak şekilde dizi
-    baseView: 'anasayfa', // 'anasayfa' | 'kesfet' | 'kaydedilenler'
+    favIds: [], // Son beğenilen en başta duracak şekilde dizi
+    baseView: 'anasayfa', // 'anasayfa' | 'kesfet' | 'favoriler' | 'kaydedilenler'
     activeModalId: null,
     activePlayerId: null,
     detailScrollTop: 0,
@@ -162,9 +165,11 @@
       timerId: null
     },
 
-    // Kaydedilenleri temizle onay durumu
+    // Kaydedilenleri ve favorileri temizle onay durumu
     clearConfirmTimer: null,
-    clearConfirming: false
+    clearConfirming: false,
+    clearFavConfirmTimer: null,
+    clearFavConfirming: false
   };
 
   /* ==========================================================================
@@ -636,6 +641,93 @@
     `;
   }
 
+  function loadFavItems() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEYS.fav);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          state.favIds = parsed.filter((id) => typeof id === 'string');
+        }
+      }
+    } catch (_) {
+      state.favIds = [];
+    }
+  }
+
+  function persistFavItems() {
+    try {
+      localStorage.setItem(STORAGE_KEYS.fav, JSON.stringify(state.favIds));
+    } catch (_) {}
+    updateFavBadges();
+  }
+
+  function isItemLiked(id) {
+    return state.favIds.includes(id);
+  }
+
+  function toggleFavItem(id) {
+    const idx = state.favIds.indexOf(id);
+    if (idx !== -1) {
+      state.favIds.splice(idx, 1);
+    } else {
+      // Son beğenilen en başta dursun
+      state.favIds.unshift(id);
+    }
+    persistFavItems();
+    syncFavButtonsInDOM(id);
+    if (state.baseView === 'favoriler') {
+      renderFavoritesView();
+    }
+  }
+
+  function updateFavBadges() {
+    const count = state.favIds.length;
+    const badgeDesktop = document.getElementById('favBadgeDesktop');
+    const badgeMobile = document.getElementById('favBadgeMobile');
+    if (badgeDesktop) {
+      badgeDesktop.textContent = String(count);
+      badgeDesktop.hidden = count === 0;
+    }
+    if (badgeMobile) {
+      badgeMobile.textContent = String(count);
+      badgeMobile.hidden = count === 0;
+    }
+  }
+
+  function syncFavButtonsInDOM(id) {
+    const liked = isItemLiked(id);
+    const item = state.byId.get(id);
+    const itemTitle = item ? item.title : '';
+
+    // Kartlardaki kalp butonları
+    document.querySelectorAll(`.card-fav-btn[data-fav-id="${CSS.escape(id)}"]`).forEach((btn) => {
+      btn.classList.toggle('liked', liked);
+      btn.setAttribute('aria-pressed', liked ? 'true' : 'false');
+      btn.setAttribute('aria-label', liked ? `${itemTitle} kaydını favorilerden çıkar` : `${itemTitle} kaydını beğen`);
+      btn.innerHTML = getHeartSvg(liked);
+    });
+
+    // Ayrıntı penceresindeki beğen butonu
+    const detailFavBtn = document.getElementById('detailFavBtn');
+    if (detailFavBtn && detailFavBtn.dataset.favId === id) {
+      detailFavBtn.classList.toggle('liked', liked);
+      detailFavBtn.setAttribute('aria-pressed', liked ? 'true' : 'false');
+      detailFavBtn.innerHTML = `
+        ${getHeartSvg(liked)}
+        <span>${liked ? 'Beğendin' : 'Beğen'}</span>
+      `;
+    }
+  }
+
+  function getHeartSvg(filled) {
+    return `
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="${filled ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+      </svg>
+    `;
+  }
+
   function getCategoryIconSvg(category) {
     if (category === 'dizi') {
       return `
@@ -725,8 +817,9 @@
       });
     });
 
-    // Geçerli olmayan kaydedilen ID'leri temizle
+    // Geçerli olmayan kaydedilen ve favori ID'leri temizle
     state.savedIds = state.savedIds.filter((id) => state.byId.has(id));
+    state.favIds = state.favIds.filter((id) => state.byId.has(id));
 
     // Filtre seçeneklerini sırala:
     // 1. Tür: Alfabetik (Türkçe)
@@ -1307,11 +1400,12 @@
   }
 
   /* ==========================================================================
-     10. KART OLUŞTURMA (Keşfet ve Kaydedilenler Ortak)
+     10. KART OLUŞTURMA (Keşfet, Favoriler ve Kaydedilenler Ortak)
      ========================================================================== */
   function buildCardHTML(item) {
     const catMeta = CATEGORY_META[item.category];
     const saved = isItemSaved(item.id);
+    const liked = isItemLiked(item.id);
 
     let yearDisplay = '';
     let shortInfo = '';
@@ -1332,6 +1426,10 @@
       ? `<span class="card-series-tag">${escapeHtml(formatSeriesBadge(item))}</span>`
       : '';
 
+    const favAria = liked
+      ? `${item.title} kaydını favorilerden çıkar`
+      : `${item.title} kaydını beğen`;
+
     const saveAria = saved
       ? `${item.title} kaydını kaydedilenlerden çıkar`
       : `${item.title} kaydını kaydet`;
@@ -1340,6 +1438,13 @@
       <article class="item-card" data-item-id="${escapeHtml(item.id)}" tabindex="0" role="button" aria-label="${escapeHtml(item.title)} (${escapeHtml(catMeta.label)})">
         <div class="card-cover-wrap">
           <span class="card-cat-badge card-cat-badge-${item.category}">${escapeHtml(catMeta.label)}</span>
+          <button type="button"
+            class="card-fav-btn ${liked ? 'liked' : ''}"
+            data-fav-id="${escapeHtml(item.id)}"
+            aria-pressed="${liked ? 'true' : 'false'}"
+            aria-label="${escapeHtml(favAria)}">
+            ${getHeartSvg(liked)}
+          </button>
           <button type="button"
             class="card-save-btn ${saved ? 'saved' : ''}"
             data-save-id="${escapeHtml(item.id)}"
@@ -1456,6 +1561,96 @@
   }
 
   /* ==========================================================================
+     11B. FAVORİLER EKRANI RENDER İŞLEMLERİ
+     ========================================================================== */
+  function renderFavoritesView() {
+    const favItems = state.favIds
+      .map((id) => state.byId.get(id))
+      .filter(Boolean);
+
+    const clearBtn = document.getElementById('clearFavBtn');
+    const emptyState = document.getElementById('favEmptyState');
+    const groupsContainer = document.getElementById('favGroupsContainer');
+
+    if (favItems.length === 0) {
+      resetClearFavConfirmation();
+      clearBtn.hidden = true;
+      emptyState.hidden = false;
+      groupsContainer.hidden = true;
+      return;
+    }
+
+    clearBtn.hidden = false;
+    emptyState.hidden = true;
+    groupsContainer.hidden = false;
+
+    const groups = {
+      dizi: favItems.filter((it) => it.category === 'dizi'),
+      film: favItems.filter((it) => it.category === 'film'),
+      kitap: favItems.filter((it) => it.category === 'kitap')
+    };
+
+    renderFavGroup('Dizi', groups.dizi);
+    renderFavGroup('Film', groups.film);
+    renderFavGroup('Kitap', groups.kitap);
+  }
+
+  function renderFavGroup(capKey, items) {
+    const groupEl = document.getElementById(`favGroup${capKey}`);
+    const countEl = document.getElementById(`favCount${capKey}`);
+    const gridEl = document.getElementById(`favGrid${capKey}`);
+
+    if (!groupEl || !countEl || !gridEl) return;
+
+    if (items.length === 0) {
+      groupEl.hidden = true;
+      gridEl.innerHTML = '';
+    } else {
+      groupEl.hidden = false;
+      countEl.textContent = String(items.length);
+      gridEl.innerHTML = items.map((it) => buildCardHTML(it)).join('');
+    }
+  }
+
+  function handleClearFavClick() {
+    const clearBtn = document.getElementById('clearFavBtn');
+    if (!clearBtn) return;
+
+    if (!state.clearFavConfirming) {
+      state.clearFavConfirming = true;
+      clearBtn.classList.add('confirming');
+      clearBtn.textContent = 'Emin misin? Temizle';
+      if (state.clearFavConfirmTimer) clearTimeout(state.clearFavConfirmTimer);
+      state.clearFavConfirmTimer = setTimeout(() => {
+        resetClearFavConfirmation();
+      }, 3500);
+    } else {
+      resetClearFavConfirmation();
+      state.favIds = [];
+      persistFavItems();
+      renderFavoritesView();
+      if (state.baseView === 'kesfet') {
+        renderExploreView();
+      } else if (state.baseView === 'kaydedilenler') {
+        renderSavedView();
+      }
+    }
+  }
+
+  function resetClearFavConfirmation() {
+    state.clearFavConfirming = false;
+    if (state.clearFavConfirmTimer) {
+      clearTimeout(state.clearFavConfirmTimer);
+      state.clearFavConfirmTimer = null;
+    }
+    const clearBtn = document.getElementById('clearFavBtn');
+    if (clearBtn) {
+      clearBtn.classList.remove('confirming');
+      clearBtn.textContent = 'Favorileri temizle';
+    }
+  }
+
+  /* ==========================================================================
      12. AYRINTI PENCERESİ (MODAL) RENDER İŞLEMLERİ
      ========================================================================== */
   function renderDetailModal(item, restoreScrollTop = 0) {
@@ -1466,6 +1661,7 @@
 
     const catMeta = CATEGORY_META[item.category];
     const saved = isItemSaved(item.id);
+    const liked = isItemLiked(item.id);
     const actionRoutePrefix = item.category === 'kitap' ? 'oku' : 'izle';
 
     // Üstteki yan yana üç bilgi:
@@ -1641,6 +1837,14 @@
             id="detailPrimaryActionBtn"
             data-action-route="#/${actionRoutePrefix}/${escapeHtml(item.id)}">
             ${escapeHtml(catMeta.actionLabel)}
+          </button>
+          <button type="button"
+            class="btn btn-outline detail-action-btn detail-fav-btn ${liked ? 'liked' : ''}"
+            id="detailFavBtn"
+            data-fav-id="${escapeHtml(item.id)}"
+            aria-pressed="${liked ? 'true' : 'false'}">
+            ${getHeartSvg(liked)}
+            <span>${liked ? 'Beğendin' : 'Beğen'}</span>
           </button>
           <button type="button"
             class="btn btn-outline detail-action-btn detail-save-btn ${saved ? 'saved' : ''}"
@@ -2033,10 +2237,12 @@
   function updateActiveNavHighlight() {
     const view = state.baseView;
     document.getElementById('navExploreDesktop')?.classList.toggle('active', view === 'kesfet');
+    document.getElementById('navFavDesktop')?.classList.toggle('active', view === 'favoriler');
     document.getElementById('navSavedDesktop')?.classList.toggle('active', view === 'kaydedilenler');
 
     document.getElementById('navHomeMobile')?.classList.toggle('active', view === 'anasayfa');
     document.getElementById('navExploreMobile')?.classList.toggle('active', view === 'kesfet');
+    document.getElementById('navFavMobile')?.classList.toggle('active', view === 'favoriler');
     document.getElementById('navSavedMobile')?.classList.toggle('active', view === 'kaydedilenler');
   }
 
@@ -2046,12 +2252,15 @@
 
     document.getElementById('viewHome').hidden = viewName !== 'anasayfa';
     document.getElementById('viewExplore').hidden = viewName !== 'kesfet';
+    document.getElementById('viewFavorites').hidden = viewName !== 'favoriler';
     document.getElementById('viewSaved').hidden = viewName !== 'kaydedilenler';
 
     updateActiveNavHighlight();
 
     if (viewName === 'kesfet') {
       renderExploreView();
+    } else if (viewName === 'favoriler') {
+      renderFavoritesView();
     } else if (viewName === 'kaydedilenler') {
       renderSavedView();
     }
@@ -2063,6 +2272,7 @@
 
   function getBaseHashForCurrentView() {
     if (state.baseView === 'kesfet') return '#/kesfet';
+    if (state.baseView === 'favoriler') return '#/favoriler';
     if (state.baseView === 'kaydedilenler') return '#/kaydedilenler';
     return '#/';
   }
@@ -2127,9 +2337,11 @@
     }
     state.modalHistoryDepth = 0;
 
-    // 3. Temel sayfalar: #/kesfet, #/kaydedilenler, #/
+    // 3. Temel sayfalar: #/kesfet, #/favoriler, #/kaydedilenler, #/
     if (parts[0] === 'kesfet') {
       showBaseView('kesfet', true);
+    } else if (parts[0] === 'favoriler') {
+      showBaseView('favoriler', true);
     } else if (parts[0] === 'kaydedilenler') {
       showBaseView('kaydedilenler', true);
     } else {
@@ -2231,6 +2443,15 @@
     // Üst çubuk ve mobil alt çubuk gezinme butonları
     document.getElementById('navExploreDesktop')?.addEventListener('click', openExploreFresh);
     document.getElementById('navExploreMobile')?.addEventListener('click', openExploreFresh);
+
+    document.getElementById('navFavDesktop')?.addEventListener('click', () => {
+      window.location.hash = '#/favoriler';
+      window.scrollTo(0, 0);
+    });
+    document.getElementById('navFavMobile')?.addEventListener('click', () => {
+      window.location.hash = '#/favoriler';
+      window.scrollTo(0, 0);
+    });
 
     document.getElementById('navSavedDesktop')?.addEventListener('click', () => {
       window.location.hash = '#/kaydedilenler';
@@ -2436,11 +2657,19 @@
       renderExploreView();
     });
 
-    // Kaydedilenler: "Kaydedilenleri temizle"
+    // Kaydedilenler: "Kaydedilenleri temizle" ve Favoriler: "Favorileri temizle"
     document.getElementById('clearSavedBtn')?.addEventListener('click', handleClearSavedClick);
+    document.getElementById('clearFavBtn')?.addEventListener('click', handleClearFavClick);
 
-    // Kart tıklamaları ve kart üzerindeki kaydet butonu (Keşfet ve Kaydedilenler ortak)
+    // Kart tıklamaları, kalp (beğen) ve kaydet butonları (Keşfet, Favoriler ve Kaydedilenler ortak)
     document.getElementById('mainContent')?.addEventListener('click', (e) => {
+      const favBtn = e.target.closest('.card-fav-btn[data-fav-id]');
+      if (favBtn) {
+        e.stopPropagation();
+        toggleFavItem(favBtn.dataset.favId);
+        return;
+      }
+
       const saveBtn = e.target.closest('.card-save-btn[data-save-id]');
       if (saveBtn) {
         e.stopPropagation();
@@ -2483,6 +2712,13 @@
         }
         state.openedPlayerFromHistory = true;
         window.location.hash = primaryBtn.dataset.actionRoute;
+        return;
+      }
+
+      // Beğen butonu
+      const favBtn = e.target.closest('#detailFavBtn');
+      if (favBtn && favBtn.dataset.favId) {
+        toggleFavItem(favBtn.dataset.favId);
         return;
       }
 
@@ -2641,11 +2877,13 @@
   async function init() {
     initTheme();
     loadSavedItems();
+    loadFavItems();
     bindEvents();
 
     try {
       await loadData();
       updateSavedBadges();
+      updateFavBadges();
       renderHomePanels();
       handleRouteChange();
     } catch (err) {
