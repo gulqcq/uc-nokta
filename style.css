@@ -537,6 +537,116 @@ a {
   opacity: 0.95;
 }
 
+/* Ana Sayfa Koleksiyonlar Bölümü */
+.home-collections {
+  margin-top: 64px;
+}
+
+.home-collections-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 20px;
+  padding-bottom: 18px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.home-collections-title {
+  font-size: clamp(1.75rem, 3vw, 2.35rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  color: var(--text-main);
+}
+
+.home-collections-subtitle {
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.collections-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.collection-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 20px 24px;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  text-align: left;
+  transition: transform 0.16s ease, border-color 0.16s ease, background-color 0.16s ease;
+}
+
+.collection-row:hover {
+  transform: translateY(-2px);
+  border-color: var(--text-soft);
+}
+
+.collection-row-left {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+
+.collection-row-title {
+  font-size: 1.22rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-main);
+  line-height: 1.25;
+}
+
+.collection-row-desc {
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.collection-row-count {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--text-soft);
+  margin-top: 2px;
+}
+
+.collection-row-covers {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.collection-mini-cover {
+  width: 60px;
+  aspect-ratio: 2 / 3;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.collection-mini-cover .cover-typography {
+  padding: 8px 5px 6px 5px;
+}
+
+.collection-mini-cover .cover-title-text {
+  font-size: 0.5rem;
+  -webkit-line-clamp: 2;
+}
+
 /* ==========================================================================
    6. KEŞFET EKRANI
    ========================================================================== */
@@ -2198,6 +2308,31 @@ a {
 
   .panel-mini-cover {
     width: 84px;
+  }
+
+  .home-collections {
+    margin-top: 44px;
+  }
+
+  .collection-row {
+    padding: 16px;
+    gap: 14px;
+  }
+
+  .collection-row-title {
+    font-size: 1.05rem;
+  }
+
+  .collection-row-desc {
+    font-size: 0.86rem;
+  }
+
+  .collection-row-covers {
+    gap: 6px;
+  }
+
+  .collection-mini-cover {
+    width: 46px;
   }
 
   /* Keşfet Mobil */

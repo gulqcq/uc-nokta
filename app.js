@@ -38,6 +38,78 @@
     kitap: { label: 'Kitap', plural: 'Kitaplar', cta: 'Kitaplara bak', actionLabel: 'Oku' }
   };
 
+  /**
+   * 8 Koleksiyon tanımı — ayrı bir listede tutulmaz, verideki bilgilere bakılarak hesaplanır.
+   */
+  const COLLECTIONS = [
+    {
+      id: 'kucuk-kasabalar-buyuk-sirlar',
+      title: 'Küçük kasabalar, büyük sırlar',
+      description: 'Herkesin herkesi tanıdığı yerlerde saklı kalan olaylar.',
+      match: (item) => (item.tags || []).includes('kasaba')
+    },
+    {
+      id: 'zaman-ve-hafiza',
+      title: 'Zaman ve hafıza',
+      description: 'Geçmişin kayıtları, unutulanlar ve geri dönenler.',
+      match: (item) => {
+        const tags = item.tags || [];
+        return tags.includes('zaman') || tags.includes('hafıza');
+      }
+    },
+    {
+      id: 'yola-cikanlar',
+      title: 'Yola çıkanlar',
+      description: 'Bir yerden bir yere giderken değişen insanlar.',
+      match: (item) => (item.tags || []).includes('yolculuk')
+    },
+    {
+      id: 'miras-ve-aile',
+      title: 'Miras ve aile',
+      description: 'Evler, tarlalar ve bölüşülemeyen ortak geçmiş.',
+      match: (item) => (item.tags || []).includes('miras')
+    },
+    {
+      id: 'yarinin-dunyalari',
+      title: 'Yarının dünyaları',
+      description: 'Gelecek, yapay zekâ, uzay ve gözetim üzerine kurgular.',
+      match: (item) => {
+        const tags = item.tags || [];
+        return (
+          tags.includes('gelecek') ||
+          tags.includes('yapay zekâ') ||
+          tags.includes('uzay') ||
+          tags.includes('gözetim')
+        );
+      }
+    },
+    {
+      id: 'bir-oturusta-bitenler',
+      title: 'Bir oturuşta bitenler',
+      description: 'Kısa filmler, mini diziler ve ince kitaplar.',
+      match: (item) => {
+        if (item.category === 'film') return item.runtime <= 95;
+        if (item.category === 'dizi') return item.episodes <= 10;
+        if (item.category === 'kitap') return item.pages <= 200;
+        return false;
+      }
+    },
+    {
+      id: 'seri-halinde',
+      title: 'Seri hâlinde',
+      description: 'Birden fazla parçası olan film ve kitap serileri.',
+      match: (item) => Boolean(item.series)
+    },
+    {
+      id: 'turkce-asli',
+      title: 'Türkçe aslı',
+      description: 'Türkçe çekilmiş ya da Türkçe yazılmış yapımlar.',
+      match: (item) => (item.lang || []).includes('Türkçe')
+    }
+  ];
+
+  const COLLECTIONS_BY_ID = new Map(COLLECTIONS.map((c) => [c.id, c]));
+
   /* ==========================================================================
      2. UYGULAMA DURUMU (STATE)
      ========================================================================== */
@@ -76,6 +148,7 @@
       langs: new Set(),
       countries: new Set(),
       tags: new Set(),
+      collection: null,
       visibleCount: PAGE_SIZE
     },
 
@@ -696,6 +769,70 @@
         .map((item) => `<div class="panel-mini-cover">${buildCoverHTML(item, true)}</div>`)
         .join('');
     });
+
+    renderHomeCollections();
+  }
+
+  /**
+   * Ana sayfadaki 8 koleksiyon satırını veriden hesaplayarak çizer.
+   * Sağdaki 3 küçük kapak mümkünse üç farklı kategoriden seçilir.
+   */
+  function renderHomeCollections() {
+    const listEl = document.getElementById('collectionsList');
+    if (!listEl) return;
+
+    const rowsHtml = COLLECTIONS.map((col) => {
+      const matchingItems = state.allItems.filter(col.match);
+      const covers = pickCollectionCovers(matchingItems);
+      const coversHtml = covers
+        .map((it) => `<div class="collection-mini-cover">${buildCoverHTML(it, true)}</div>`)
+        .join('');
+
+      return `
+        <button type="button" class="collection-row" data-collection-id="${escapeHtml(col.id)}">
+          <div class="collection-row-left">
+            <h3 class="collection-row-title">${escapeHtml(col.title)}</h3>
+            <p class="collection-row-desc">${escapeHtml(col.description)}</p>
+            <span class="collection-row-count">${matchingItems.length} yapım</span>
+          </div>
+          <div class="collection-row-covers" aria-hidden="true">
+            ${coversHtml}
+          </div>
+        </button>
+      `;
+    });
+
+    listEl.innerHTML = rowsHtml.join('');
+  }
+
+  /**
+   * Koleksiyon kapaklarını mümkünse üç farklı kategoriden (Dizi, Film, Kitap) seçer.
+   */
+  function pickCollectionCovers(items) {
+    const byCat = {
+      dizi: items.filter((it) => it.category === 'dizi'),
+      film: items.filter((it) => it.category === 'film'),
+      kitap: items.filter((it) => it.category === 'kitap')
+    };
+
+    const picked = [];
+    const usedIds = new Set();
+
+    ['dizi', 'film', 'kitap'].forEach((cat) => {
+      if (byCat[cat].length > 0 && picked.length < 3) {
+        const choice = byCat[cat][Math.floor(Math.random() * byCat[cat].length)];
+        picked.push(choice);
+        usedIds.add(choice.id);
+      }
+    });
+
+    if (picked.length < 3) {
+      const remaining = items.filter((it) => !usedIds.has(it.id));
+      const extras = pickRandomItems(remaining, 3 - picked.length);
+      extras.forEach((ex) => picked.push(ex));
+    }
+
+    return picked;
   }
 
   function pickRandomItems(arr, count) {
@@ -802,6 +939,12 @@
       if (!hasTag) return false;
     }
 
+    // Koleksiyon kontrolü
+    if (ignoreGroup !== 'collection' && exp.collection) {
+      const colDef = COLLECTIONS_BY_ID.get(exp.collection);
+      if (colDef && !colDef.match(item)) return false;
+    }
+
     return true;
   }
 
@@ -892,6 +1035,7 @@
     state.explore.langs.clear();
     state.explore.countries.clear();
     state.explore.tags.clear();
+    state.explore.collection = null;
     state.explore.visibleCount = PAGE_SIZE;
 
     const searchInput = document.getElementById('exploreSearchInput');
@@ -1121,6 +1265,13 @@
     exp.tags.forEach((t) => {
       chips.push({ type: 'tag', val: t, label: t });
     });
+
+    if (exp.collection) {
+      const colDef = COLLECTIONS_BY_ID.get(exp.collection);
+      if (colDef) {
+        chips.push({ type: 'collection', val: colDef.id, label: colDef.title });
+      }
+    }
 
     const listEl = document.getElementById('activeFiltersList');
     const mobileBadge = document.getElementById('mobileFilterCountBadge');
@@ -2130,6 +2281,17 @@
       window.scrollTo(0, 0);
     });
 
+    // Ana sayfa koleksiyon satırları
+    document.getElementById('collectionsList')?.addEventListener('click', (e) => {
+      const row = e.target.closest('.collection-row[data-collection-id]');
+      if (!row) return;
+      const colId = row.dataset.collectionId;
+      resetExploreState();
+      state.explore.collection = colId;
+      window.location.hash = '#/kesfet';
+      window.scrollTo(0, 0);
+    });
+
     // Keşfet: Kategori butonları (Ya "Hepsi" ya da 1 veya 2 kategori birlikte)
     document.querySelector('.explore-cat-pills')?.addEventListener('click', (e) => {
       const pill = e.target.closest('.cat-pill[data-cat]');
@@ -2256,6 +2418,7 @@
       } else if (type === 'lang') exp.langs.delete(val);
       else if (type === 'country') exp.countries.delete(val);
       else if (type === 'tag') exp.tags.delete(val);
+      else if (type === 'collection') exp.collection = null;
 
       exp.visibleCount = PAGE_SIZE;
       renderExploreView();
@@ -2463,6 +2626,7 @@
     state.explore.langs.clear();
     state.explore.countries.clear();
     state.explore.tags.clear();
+    state.explore.collection = null;
     state.explore.visibleCount = PAGE_SIZE;
 
     const minIn = document.getElementById('yearMinInput');
